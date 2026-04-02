@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  ARCHITECT
+  ENGINEER
+  CONTRACTOR
+  CLIENT
+  MEMBER
+}
+
+enum ProjectType {
+  RESIDENTIAL
+  COMMERCIAL
+}
+
+model User {
+  id             String          @id @default(cuid())
+  clerkId        String          @unique
+  email          String          @unique
+  name           String?
+  projects       Project[] // Projects owned by this user
+  projectMembers ProjectMember[] // Memberships in other projects
+  files          File[]
+  activityLogs   ActivityLog[]
+  messages       Message[]
+  createdAt      DateTime        @default(now())
+}
+
+model Project {
+  id                String             @id @default(cuid())
+  name              String
+  description       String?
+  location          String?
+  type              ProjectType        @default(RESIDENTIAL)
+  status            String             @default("active") // active, completed, archived
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+  plotArea          Float?             // sq.ft
+  builtUpArea       Float?             // sq.ft
+  city              String?            // Mumbai, Chennai, etc.
+  complianceStatus  String             @default("NONE") // PASS, FAIL, NONE
+  violations        Json?              // Array of violation strings
+  costEstimate      Float              @default(0)
+  materialBreakdown Json?              // { cement: 0, steel: 0, ... }
+  siteProgress      Float              @default(0)
+  aiReport          Json?              // Structured strategic logic
+  members           ProjectMember[]
+  tasks             Task[]
+  files             File[]
+  activityLogs      ActivityLog[]
+  complianceChecks  ComplianceCheck[]
+  siteUpdates       SiteUpdate[]
+  materialEstimates MaterialEstimate[]
+  messages          Message[]
+  createdAt         DateTime           @default(now())
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  role      Role     @default(MEMBER)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, projectId])
+}
+
+model SiteUpdate {
+  id              String   @id @default(cuid())
+  imageUrl        String
+  progressPercent Float
+  notes           String?
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id])
+  createdAt       DateTime @default(now())
+}
+
+model MaterialEstimate {
+  id          String   @id @default(cuid())
+  cement      Float // bags
+  steel       Float // tons
+  bricks      Float?
+  totalCost   Float
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  status      String    @default("pending") // pending, in-progress, completed
+  priority    String    @default("medium") // low, medium, high
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model File {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  type       String? // PDF, Image, CAD, etc.
+  version    Int      @default(1)
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id])
+  uploadedBy String
+  user       User     @relation(fields: [uploadedBy], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  type      String // project_created, file_uploaded, task_updated, etc.
+  message   String
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model ComplianceRule {
+  id          String   @id @default(cuid())
+  city        String   @unique
+  maxHeight   Float
+  minSetback  Float
+  maxFSI      Float
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model ComplianceCheck {
+  id         String                @id @default(cuid())
+  projectId  String
+  project    Project               @relation(fields: [projectId], references: [id])
+  inputData  Json // plotSize, floors, height, city, etc.
+  result     String // PASS/FAIL
+  violations ComplianceViolation[]
+  createdAt  DateTime              @default(now())
+}
+
+model ComplianceViolation {
+  id         String          @id @default(cuid())
+  checkId    String
+  check      ComplianceCheck @relation(fields: [checkId], references: [id])
+  message    String
+  suggestion String?
+  severity   String // info, warning, critical
+  createdAt  DateTime        @default(now())
+}
