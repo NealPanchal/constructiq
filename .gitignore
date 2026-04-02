@@ -35,3 +35,9 @@ next-env.d.ts
 
 # prisma
 /prisma/migrations
+*.db
+*.db-journal
+
+# assistant
+.agents/
+skills-lock.json
